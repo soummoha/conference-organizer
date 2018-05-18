@@ -1,5 +1,7 @@
 package com.soumya.conf.session;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,8 +11,8 @@ import com.soumya.conf.util.LogLevel;
 import com.soumya.conf.util.Response;
 
 /**
- * <tt>SessionFinderImpl</tt> implements <tt>SessionFinder</tt> interface. 
- * It provides implementation to find First Sessions and Second Sessions
+ * <tt>SessionFinderImpl</tt> implements <tt>SessionFinder</tt> interface. It
+ * provides implementation to find First Sessions and Second Sessions
  * 
  * @author Soumyakanta Mohapatra
  * 
@@ -20,34 +22,31 @@ import com.soumya.conf.util.Response;
  *
  */
 public class SessionFinderImpl implements SessionFinder {
-	
+
 	/**
-	 * Provides implementation to find suitable proposals for first session
-	 * from a list of available proposals.
+	 * Provides implementation to find suitable proposals for first session from
+	 * a list of available proposals.
 	 * 
-	 * @param proposals available
+	 * @param proposals
+	 *            available
 	 * @return proposals for first session
 	 */
 	@Override
 	public List<Proposal> findFirstSession(List<Proposal> proposals) {
 		Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findFirstSession start");
 		if (isNullOrEmpty(proposals)) {
+			Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findFirstSession end");
 			return null;
 		}
 		int index = 0;
-		List<Proposal> result = null;
 		while (index < proposals.size()) {
-			result = new ArrayList<>();
-			result.add(proposals.get(index));
-			if (FIRST_SESSION_DURATION == proposalDuration(result)) {
-				Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findFirstSession end");
-				return result;
-			}
-			for (int i = index + 1; i < proposals.size(); i++) {
-				result.add(proposals.get(i));
-				if (FIRST_SESSION_DURATION == proposalDuration(result)) {
+			List<Proposal> selectedProposals = new ArrayList<>();
+			for (int i = index; i < proposals.size(); i++) {
+				selectedProposals.add(proposals.get(i));
+				int selectedProposalDuration = proposalDuration(selectedProposals);
+				if (FIRST_SESSION_DURATION == selectedProposalDuration) {
 					Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findFirstSession end");
-					return result;
+					return selectedProposals;
 				}
 			}
 			index++;
@@ -55,46 +54,45 @@ public class SessionFinderImpl implements SessionFinder {
 		Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findFirstSession end");
 		return null;
 	}
-	
+
 	/**
 	 * Provides implementation to find suitable proposals for second session
 	 * from a list of available proposals.
 	 * 
-	 * @param proposals available
+	 * @param proposals
+	 *            available
 	 * @return proposals for second session
 	 */
 	@Override
 	public List<Proposal> findSecondSession(List<Proposal> proposals) {
 		Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findSecondSession start");
 		if (isNullOrEmpty(proposals)) {
+			Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findSecondSession end");
 			return null;
 		}
 		int index = 0;
-		List<Proposal> result = null;
-		List<List<Proposal>> probableResults = new ArrayList<>();
+		List<List<Proposal>> acceptedListOfProposals = new ArrayList<>();
 		while (index < proposals.size()) {
-			result = new ArrayList<>();
-			result.add(proposals.get(index));
-			int sumDuration = proposalDuration(result);
-			if (sumDuration >= SECOND_SESSION_DURATION_MIN && sumDuration <= SECOND_SESSION_DURATION_MAX) {
-				probableResults.add(result);
-			}
-			for (int i = index + 1; i < proposals.size(); i++) {
-				result.add(proposals.get(i));
-				sumDuration = proposalDuration(result);
-				if (sumDuration >= SECOND_SESSION_DURATION_MIN && sumDuration <= SECOND_SESSION_DURATION_MAX) {
-					List<Proposal> probableProposal = new ArrayList<>();
-					probableProposal.addAll(result);
-					probableResults.add(probableProposal);
+			List<Proposal> selectedProposals = new ArrayList<>();
+			for (int i = index; i < proposals.size(); i++) {
+				selectedProposals.add(proposals.get(i));
+				int selectedProposalsDuration = proposalDuration(selectedProposals);
+				if( selectedProposalsDuration > SECOND_SESSION_DURATION_MAX ){
+					break;
+				}
+				if (selectedProposalsDuration >= SECOND_SESSION_DURATION_MIN) {
+					List<Proposal> acceptedProposals = selectedProposals.stream().collect(toList());
+					acceptedListOfProposals.add(acceptedProposals);
 				}
 			}
 			index++;
 		}
 
-		if (probableResults.isEmpty()) {
+		if (acceptedListOfProposals.isEmpty()) {
+			Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findSecondSession end");
 			return null;
 		}
-		List<Proposal> response = findOptimalProposals(probableResults);
+		List<Proposal> response = findOptimalProposals(acceptedListOfProposals);
 		Response.writeLog(LogLevel.DEBUG, this.getClass().getSimpleName() + ": findSecondSession end");
 		return response;
 	}
